@@ -1,47 +1,47 @@
+// require dependencies
 const express = require('express');
+const fs = require('fs');
 const path = require('path');
-const notes = require('./db/db.json')
-const PORT = process.env.PORT || 3001;
-
+const crypto = require('crypto');
+// create express app
 const app = express();
-
+const PORT = process.env.PORT || 3001;
+// middleware
+app.use(express.json());
 app.use(express.static('public'));
-
-// GET Route for homepage
-app.get('/', (req, res) =>
-  res.sendFile(path.join(__dirname, '/public/assets/index.html'))
-);
-app.get('/notes', (req, res) =>
-  res.sendFile(path.join(__dirname, './public/assets/notes.html'))
-);
-
-app.post('/api/notes', (req, res) => {
-    console.info(`${req.method} request received to add a review`);
-  
-
-    const { title, text } = req.body;
-  
-    if (title && text) {
-      const newReview = {
-        title,
-        text,
-      };
-  
-      const response = {
-        status: 'success',
-        body: newReview,
-      };
-  
-      console.log(response);
-      res.status(201).json(response);
-    } else {
-      res.status(500).json('Error in posting review');
-    }
-  });
-  
+app.use(express.urlencoded({extended: true}));
+// ROUTES
+// GET route for homepage
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '/public/index.html'));
+});
+// GET route for notes page
+app.get('/notes', (req,res) => {
+    res.sendFile(path.join(__dirname, '/public/notes.html'));
+});
+// GET route for getting all notes
 app.get('/api/notes', (req, res) => {
-    console.info(`GET /api/notes`);
-    res.status(200).json(notes);
-  });
-
-app.listen(PORT, () => console.log(`App listening on port ${PORT}`));
+    const notes = JSON.parse(fs.readFileSync('./db/db.json', 'utf8'));
+    res.json(notes);
+});
+// POST route for adding a new note
+app.post('/api/notes', (req, res) => {
+    const newNote = req.body;
+    const cryptoUUID = crypto.randomBytes(16).toString('hex');
+    newNote.id = cryptoUUID;
+    const notes = JSON.parse(fs.readFileSync('./db/db.json', 'utf8'));
+    notes.push(newNote);
+    fs.writeFileSync('./db/db.json', JSON.stringify(notes));
+    res.json(newNote);
+});
+// DELETE route for deleting a note by ID
+app.delete('/api/notes/:id', (req, res) => {
+    const notes = JSON.parse(fs.readFileSync('./db/db.json', 'utf8'));
+    const updatedNotes = notes.filter(note => note.id !== req.params.id);
+    fs.writeFileSync('./db/db.json', JSON.stringify(updatedNotes));
+    res.json({success: true});
+});
+// LISTEN for server
+app.listen(PORT, () => {
+    console.log(`server listening on port ${PORT}`);
+});
